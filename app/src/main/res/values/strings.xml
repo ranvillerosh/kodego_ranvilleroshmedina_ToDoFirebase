@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">ToDoFirebase</string>
+    <string name="add_new_task">Add New Task</string>
+    <string name="delete_task">Delete Task</string>
+    <string name="save">Save</string>
+    <string name="set_due_date">Set Due Date</string>
+    <string name="set_time_due">Set Time Due</string>
+    <string name="task_details">Task Details</string>
+    <string name="enter_new_task">Enter New Task</string>
+</resources>
