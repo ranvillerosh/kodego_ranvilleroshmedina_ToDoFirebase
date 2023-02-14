@@ -12,9 +12,12 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.todofirebase.data.SwipeHelperCallback
 import com.example.todofirebase.data.Task
-import com.example.todofirebase.data.TaskDatabase
+import com.example.todofirebase.data.TaskDAO
 import com.example.todofirebase.databinding.ActivityMainBinding
 import com.example.todofirebase.databinding.AddNewTaskDialogBinding
+import com.firebase.ui.database.FirebaseRecyclerOptions
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -26,42 +29,66 @@ import java.time.format.FormatStyle
 
 class MainActivity : AppCompatActivity() {
     lateinit var binding: ActivityMainBinding
-    private lateinit var adapter: TaskAdapter
-    val dbAccess by lazy { TaskDatabase.getDatabase(applicationContext).taskDao() }
+    private lateinit var adapter: FireBaseTaskAdapter
+    private val dbAccess = TaskDAO()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        adapter = TaskAdapter(getAllTasks())
-        populateRecyclerView(adapter)
+        val snapshotParser = { snapshot: DataSnapshot ->
+            Task(
+                snapshot.child("id").value.toString(),
+                snapshot.child("task").value.toString(),
+                snapshot.child("details").value?.toString(),
+                try {
+                    LocalDate.parse(snapshot.child("dueDate").value?.toString())
+                } catch (e:NullPointerException) { null },
+                try {
+                    LocalTime.parse(snapshot.child("dueTime").value?.toString())
+                } catch (e:NullPointerException) { null },
+                snapshot.child("taskDone").value.toString().toBooleanStrict()
+            )
+        }
+
+        val options = FirebaseRecyclerOptions.Builder<Task>().setQuery(dbAccess.getAll(), snapshotParser )
+        .build()
+
+        adapter = FireBaseTaskAdapter(options)
+        binding.rvTaskRecycler.layoutManager = LinearLayoutManager(applicationContext)
+        binding.rvTaskRecycler.adapter = adapter
+//        adapter.snapshots.sortWith(compareBy<Task> {it.taskDone}.thenBy { it.dueDate }.thenBy { it.dueTime })
 
         binding.fabAddNewTask.setOnClickListener {
             showAddNewTaskDialog()
         }
 
         adapter.onBtnDeleteTask = {
-            deleteTask(adapter.taskList[it])
-            adapter.taskList.removeAt(it)
-            adapter.notifyItemRemoved(it)
-            adapter.notifyItemRangeChanged(it, adapter.itemCount)
+            holder: TaskListViewHolder, task: Task ->
+            deleteTask(holder, task)
         }
 
         adapter.onTaskClick = {
-            task: Task, position: Int ->
-            editTaskDialog(task, position)
+            holder: TaskListViewHolder, task: Task ->
+            editTaskDialog(task)
         }
-        val callback:ItemTouchHelper.Callback = SwipeHelperCallback(adapter, applicationContext)
+
+        val callback:ItemTouchHelper.Callback = SwipeHelperCallback(adapter, dbAccess)
         val mItemTouchHelper = ItemTouchHelper(callback)
         mItemTouchHelper?.attachToRecyclerView(binding.rvTaskRecycler)
     }
-    private fun populateRecyclerView(adapter: TaskAdapter){
-        binding.rvTaskRecycler.adapter = adapter
-        binding.rvTaskRecycler.layoutManager = LinearLayoutManager(this)
+
+    override fun onStart() {
+        super.onStart()
+        adapter.startListening()
     }
 
-    private fun addNewTask(task: Task):Long {
-        var taskID:Long = 0
+    override fun onStop() {
+        super.onStop()
+        adapter.stopListening()
+    }
+    private fun addNewTask(task: Task):String {
+        var taskID:String = ""
         runBlocking {
             launch (Dispatchers.IO) {
                 taskID = dbAccess.addNewTask(task)
@@ -78,21 +105,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun deleteTask(task: Task) {
+    private fun deleteTask( holder: TaskListViewHolder, task: Task) {
+        val position = holder.absoluteAdapterPosition
         GlobalScope.launch (Dispatchers.IO) {
             dbAccess.deleteTask(task)
         }
     }
 
-    private fun getAllTasks():MutableList<Task> {
-        lateinit var allTasks:MutableList<Task>
-        runBlocking {
-            launch (Dispatchers.IO) {
-                allTasks = dbAccess.getAll()
-            }
-        }
-        return allTasks
-    }
     private fun showAddNewTaskDialog() {
         val dialog = Dialog(this)
         val binding:AddNewTaskDialogBinding = AddNewTaskDialogBinding.inflate(layoutInflater)
@@ -117,10 +136,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     var newTask = Task(null, binding.etTask.text.toString(), taskDetails, dueDate, dueTime, false)
 
-                    newTask.id = addNewTask(newTask).toInt()
-                    adapter.taskList = getAllTasks()
-                    adapter.notifyItemInserted(adapter.taskList.indexOf(newTask))
-                    adapter.notifyItemRangeChanged(adapter.taskList.indexOf(newTask),adapter.itemCount)
+                    newTask.id = addNewTask(newTask)
                 }
 
                 dialog.dismiss()
@@ -159,7 +175,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun editTaskDialog(task: Task, position: Int) {
+    private fun editTaskDialog(task: Task) {
         val dialog = Dialog(this)
         val binding:AddNewTaskDialogBinding = AddNewTaskDialogBinding.inflate(layoutInflater)
         dialog.setContentView(binding.root)
@@ -196,12 +212,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     binding.etTaskDetails.text.toString()
                 }
-                var editedTask = Task(task.id, binding.etTask.text.toString(), taskDetails, dueDate, dueTime, false)
+                var editedTask = Task(task.id, binding.etTask.text.toString(), taskDetails, dueDate, dueTime, task.taskDone)
                 editTask(editedTask)
-                adapter.taskList = getAllTasks()
-                adapter.notifyItemChanged(adapter.taskList.indexOf(editedTask))
-                adapter.notifyDataSetChanged()
-
                 dialog.dismiss()
             } catch (e:Exception) {
                 Toast.makeText(applicationContext, "Something Went Wrong", Toast.LENGTH_SHORT).show()

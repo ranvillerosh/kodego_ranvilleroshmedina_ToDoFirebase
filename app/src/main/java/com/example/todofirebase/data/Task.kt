@@ -6,12 +6,12 @@ import androidx.room.PrimaryKey
 import java.time.LocalDate
 import java.time.LocalTime
 
-@Entity (tableName = "task_database")
+//@Entity (tableName = "task_database")
 data class Task(
-    @PrimaryKey(autoGenerate = true)        var id:Int?,
-    @ColumnInfo(name = "task")              var task:String,
-    @ColumnInfo(name = "task_details")      var details:String?,
-    @ColumnInfo(name = "due_date")          var dueDate:LocalDate?,
-    @ColumnInfo(name = "due_time")          var dueTime:LocalTime?,
-    @ColumnInfo(name = "task_status")       var taskDone:Boolean
+    var id:String?,
+    var task:String,
+    var details:String?,
+    var dueDate:LocalDate?,
+    var dueTime:LocalTime?,
+    var taskDone:Boolean
 )

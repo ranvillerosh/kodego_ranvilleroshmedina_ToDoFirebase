@@ -7,55 +7,57 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.todofirebase.data.Task
 import com.example.todofirebase.databinding.TaskViewHolderBinding
+import com.firebase.ui.database.FirebaseRecyclerAdapter
+import com.firebase.ui.database.FirebaseRecyclerOptions
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-class TaskAdapter(var taskList: MutableList<Task>):RecyclerView.Adapter<TaskListViewHolder>() {
-    lateinit var onBtnDeleteTask: (Int) -> Unit
-    lateinit var onTaskClick: (Task, Int) -> Unit
+class FireBaseTaskAdapter(options: FirebaseRecyclerOptions<Task>):
+    FirebaseRecyclerAdapter<Task, TaskListViewHolder>(options) {
+    lateinit var onBtnDeleteTask: (TaskListViewHolder, Task) -> Unit
+    lateinit var onTaskClick: (TaskListViewHolder, Task) -> Unit
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskListViewHolder {
-        val layoutInflater =LayoutInflater.from(parent.context)
+        val layoutInflater = LayoutInflater.from(parent.context)
         val binding = TaskViewHolderBinding.inflate(layoutInflater, parent, false)
         return TaskListViewHolder(binding)
     }
 
-    override fun getItemCount(): Int {
-        return taskList.size
-    }
-
-    override fun onBindViewHolder(holder: TaskListViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: TaskListViewHolder, position: Int, model: Task) {
+//        taskList.add(model)
+        
         holder.binding.apply {
-            tvTask.text = if(taskList[position].task == null || taskList[position].task.isEmpty()) {
+            tvTask.text = if(model.task == null || model.task.isEmpty()) {
                 ""
             } else {
-                "${taskList[position].task} pos:${position}"
+                model.task
             }
-            tvTaskDetails.text = if(taskList[position].details == null) {
+            tvTaskDetails.text = if(model.details == null) {
                 ""
             } else {
-                taskList[position].details
+                model.details
             }
-            if(taskList[position].details == null) {
+            if(model.details == null) {
                 tvTaskDetails.visibility = View.GONE
             }
 
             tvDueDate.text = try {
-                DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(taskList[position].dueDate)
+                DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(model.dueDate)
             } catch (e:Exception) {
                 "No due date set."
             }
             tvDueTime.text = try {
-                DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(taskList[position].dueTime)
+                DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(model.dueTime)
             } catch (e:Exception) {
                 "Time due not set."
             }
             imgbtnDeleteTask.setOnClickListener {
-                onBtnDeleteTask.invoke(position)
+                onBtnDeleteTask.invoke(holder, model)
             }
             holder.itemView.setOnClickListener {
-                onTaskClick.invoke(taskList[position], position)
+                onTaskClick.invoke(holder, model)
             }
-            if(taskList[position].taskDone) {
+            if(model.taskDone) {
                 cvTaskItem.setCardBackgroundColor(Color.parseColor("#BCBCBC"))
             } else {
                 cvTaskItem.setCardBackgroundColor(Color.parseColor("#FFBB86FC"))
@@ -64,4 +66,4 @@ class TaskAdapter(var taskList: MutableList<Task>):RecyclerView.Adapter<TaskList
     }
 }
 
-//class TaskListViewHolder(val binding: TaskViewHolderBinding):RecyclerView.ViewHolder(binding.root)
+class TaskListViewHolder(val binding: TaskViewHolderBinding): RecyclerView.ViewHolder(binding.root)

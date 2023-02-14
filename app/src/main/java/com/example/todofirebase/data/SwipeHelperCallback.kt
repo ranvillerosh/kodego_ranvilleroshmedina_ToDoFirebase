@@ -1,16 +1,21 @@
 package com.example.todofirebase.data
 
-import android.content.Context
+
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.example.todofirebase.FireBaseTaskAdapter
 import com.example.todofirebase.TaskAdapter
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.LocalDate
+import java.time.LocalTime
 
-class SwipeHelperCallback(adapter:TaskAdapter, context: Context):ItemTouchHelper.Callback() {
-    var adapterAccess = adapter
-    private val dbAccess by lazy { TaskDatabase.getDatabase(context).taskDao() }
+class SwipeHelperCallback(var adapterAccess: FireBaseTaskAdapter, var dbAccess : TaskDAO):ItemTouchHelper.Callback() {
+
     override fun getMovementFlags(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder
@@ -30,19 +35,13 @@ class SwipeHelperCallback(adapter:TaskAdapter, context: Context):ItemTouchHelper
 
     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
         if (direction == ItemTouchHelper.LEFT) {
-            val editedTask = this.adapterAccess.taskList[viewHolder.adapterPosition]
-            this.adapterAccess.taskList[viewHolder.adapterPosition].taskDone = false
+            val editedTask = adapterAccess.getItem(viewHolder.bindingAdapterPosition)
+            editedTask.taskDone = false
             editTask(editedTask)
-            this.adapterAccess.taskList = getAllTasks()
-            this.adapterAccess.notifyItemChanged(this.adapterAccess.taskList.indexOf(editedTask))
-            this.adapterAccess.notifyDataSetChanged()
         } else if (direction == ItemTouchHelper.RIGHT) {
-            val editedTask = this.adapterAccess.taskList[viewHolder.adapterPosition]
-            this.adapterAccess.taskList[viewHolder.adapterPosition].taskDone = true
+            val editedTask = adapterAccess.getItem(viewHolder.bindingAdapterPosition)
+            editedTask.taskDone = true
             editTask(editedTask)
-            this.adapterAccess.taskList = getAllTasks()
-            this.adapterAccess.notifyItemChanged(this.adapterAccess.taskList.indexOf(editedTask))
-            this.adapterAccess.notifyDataSetChanged()
         }
     }
 
@@ -52,15 +51,5 @@ class SwipeHelperCallback(adapter:TaskAdapter, context: Context):ItemTouchHelper
                 dbAccess.editTask(task)
             }
         }
-    }
-
-    private fun getAllTasks():MutableList<Task> {
-        lateinit var allTasks:MutableList<Task>
-        runBlocking {
-            launch (Dispatchers.IO) {
-                allTasks = dbAccess.getAll()
-            }
-        }
-        return allTasks
     }
 }

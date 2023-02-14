@@ -1,18 +1,47 @@
 package com.example.todofirebase.data
 
-import androidx.room.*
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.Query
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+import java.util.Objects
 
-@Dao
-interface TaskDAO {
-    @Insert
-    suspend fun addNewTask(task: Task):Long
+class TaskDAO {
+    var dbReference = Firebase.database("https://todofirebase-a02a1-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
 
-    @Delete
-    suspend fun deleteTask(task: Task)
+    fun addNewTask(task: Task):String {
+        var pushKey = dbReference.push().key!!
+        var convertedTask = ConvertedTask(
+            pushKey,
+            task.task,
+            task.details,
+            task.dueDate?.toString(),
+            task.dueTime?.toString(),
+            task.taskDone
+        )
+        dbReference.child(pushKey).setValue(convertedTask)
+        return pushKey
+    }
 
-    @Update
-    suspend fun editTask(task: Task)
 
-    @Query("SELECT * FROM task_database ORDER BY task_status ASC, due_date ASC, due_time ASC")
-    fun getAll():MutableList<Task>
+    fun deleteTask(task: Task) {
+        dbReference.child(task.id!!).removeValue()
+    }
+
+
+    fun editTask(task: Task) {
+        var convertedTask = ConvertedTask(
+            task.id,
+            task.task,
+            task.details,
+            task.dueDate?.toString(),
+            task.dueTime?.toString(),
+            task.taskDone
+        )
+        dbReference.child(task.id.toString()).setValue(convertedTask)
+    }
+
+    fun getAll():Query {
+        return dbReference.orderByKey()
+    }
 }
